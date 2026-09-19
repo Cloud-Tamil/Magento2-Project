@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  php-fpm:
+    env_file:
+      - docker/env/common.env
+      - docker/env/dev.env
+      - .env
+    environment:
+      PHP_IDE_CONFIG: "serverName=localhost"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  php-cli:
+    env_file:
+      - docker/env/common.env
+      - docker/env/dev.env
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Mailpit: Local email capture and testing tool
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-mageforge}_mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
+      - "1025:1025"
+    networks:
+      - mage-network

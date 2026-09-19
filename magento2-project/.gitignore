@@ -1,0 +1,37 @@
+# Environment credentials & local overrides
+.env
+.env.local
+docker/env/*.local.env
+auth.json
+
+# Local persistent storage volumes
+volumes/db/*
+!volumes/db/.gitkeep
+volumes/opensearch/*
+!volumes/opensearch/.gitkeep
+volumes/redis/*
+!volumes/redis/.gitkeep
+volumes/rabbitmq/*
+!volumes/rabbitmq/.gitkeep
+
+# Magento generated & runtime files
+src/app/etc/env.php
+src/app/etc/config.php
+src/generated/*
+!src/generated/.gitkeep
+src/pub/media/*
+!src/pub/media/.gitkeep
+src/pub/static/*
+!src/pub/static/.gitkeep
+src/var/*
+!src/var/.gitkeep
+src/vendor/
+src/.installed
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.log

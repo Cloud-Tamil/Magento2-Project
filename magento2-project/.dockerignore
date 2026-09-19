@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.local
+volumes/
+src/var/cache/
+src/var/page_cache/
+src/var/session/
+src/var/log/
+src/generated/code/
+src/generated/metadata/
+node_modules/
+.idea
+.vscode
+*.md

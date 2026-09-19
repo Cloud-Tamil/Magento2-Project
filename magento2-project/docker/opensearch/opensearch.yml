@@ -1,0 +1,17 @@
+cluster.name: magento2-cluster
+node.name: magento2-node-1
+network.host: 0.0.0.0
+http.port: 9200
+
+# Single node setup for dev/stage
+discovery.type: single-node
+bootstrap.memory_lock: true
+
+# Security Plugin (Disabled for internal secure Docker bridge network)
+plugins.security.disabled: true
+plugins.security.ssl.http.enabled: false
+plugins.security.ssl.transport.enabled: false
+
+# Compatibility mode for Elasticsearch clients if needed
+compatibility.override_main_response_version: true
+indices.query.bool.max_clause_count: 10240

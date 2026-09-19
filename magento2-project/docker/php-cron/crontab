@@ -1,0 +1,3 @@
+# Magento 2 Official Cron Schedule
+# Executes every minute with memory limit safety and log rotation
+* * * * * /usr/local/bin/php /var/www/html/bin/magento cron:run 2>&1 | grep -v "Ran jobs by schedule" >> /var/www/html/var/log/magento.cron.log

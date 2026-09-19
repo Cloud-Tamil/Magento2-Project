@@ -1,0 +1,28 @@
+{
+  "rabbit_version": "3.12.0",
+  "users": [
+    {
+      "name": "magento",
+      "password_hash": "2f6c8d3db0fa1b7f0e9b98bce08c3e80d4681656a84dfc2e6462719b88713d31",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "magento",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "queues": [],
+  "exchanges": [],
+  "bindings": []
+}

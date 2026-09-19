@@ -1,0 +1,6 @@
+{
+  "name": "MageForge - Automated Magento 2 Docker Platform",
+  "description": "Complete production-ready automated Docker architecture and code structure for Magento 2.4.x with zero-touch installation, OpenSearch, Redis, RabbitMQ, Varnish, and PHP 8.2.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
