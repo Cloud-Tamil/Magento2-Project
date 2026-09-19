@@ -11,6 +11,7 @@ import { ArchitectureView } from './components/ArchitectureView';
 import { AutomationTimeline } from './components/AutomationTimeline';
 import { CommandCheatsheet } from './components/CommandCheatsheet';
 import { DocumentationTab } from './components/DocumentationTab';
+import { WorkloadTestingTab } from './components/WorkloadTestingTab';
 import { PROJECT_FILES } from './data/projectData';
 import { ProjectFile } from './types';
 
@@ -48,6 +49,7 @@ export default function App() {
         {activeTab === 'pipeline' && <AutomationTimeline />}
         {activeTab === 'configurator' && <EnvConfigurator />}
         {activeTab === 'cheatsheet' && <CommandCheatsheet />}
+        {activeTab === 'workload' && <WorkloadTestingTab />}
         {activeTab === 'docs' && <DocumentationTab />}
       </main>
 

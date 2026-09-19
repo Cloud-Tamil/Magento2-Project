@@ -47,8 +47,9 @@ automatically brings up the complete microservice architecture, verifies depende
     - [Docker Compose Commands](#docker-compose-commands)
     - [Magento CLI Commands](#magento-cli-commands)
 16. [Verification & Health Checks](#verification--health-checks)
-17. [Troubleshooting & FAQs](#troubleshooting--faqs)
-18. [Resetting the Environment](#resetting-the-environment)
+17. [Temporary Workload & Performance Testing Suite](#17-temporary-workload--performance-testing-suite)
+18. [Troubleshooting & FAQs](#18-troubleshooting--faqs)
+19. [Resetting the Environment](#resetting-the-environment)
 
 ---
 
@@ -527,7 +528,104 @@ docker compose exec rabbitmq rabbitmq-diagnostics check_running
 
 ---
 
-## 17. Troubleshooting & FAQs
+## 17. Temporary Workload & Performance Testing Suite
+
+To test the application under load, verify Varnish caching, stress MySQL and OpenSearch, and generate synthetic shopping behavior, multiple workload mechanisms are available:
+
+### Method A: Automated Workload Script (`test-workload.sh`)
+
+MageForge includes an automated workload generator script located at:
+`docker/scripts/test-workload.sh`
+
+Run it directly from your host:
+```bash
+chmod +x docker/scripts/test-workload.sh
+./docker/scripts/test-workload.sh
+```
+
+Or execute it inside the container:
+```bash
+docker compose exec php-cli bash /var/www/scripts/test-workload.sh
+```
+
+#### What the workload script simulates:
+1. **Pre-Flight Health Checks:** Validates HTTP responsiveness of Storefront (Port 80) and Nginx (Port 8080).
+2. **Varnish Cache Hit Verification:** Measures latency on 10 consecutive requests (`X-Magento-Tags`, `X-Cache: HIT` vs `MISS`, sub-15ms check).
+3. **Catalog & Search Spike:** Sends concurrent search queries (`?q=jacket`, `?q=shirt`, `?q=pants`, `?q=watch`) directly to OpenSearch.
+4. **Session & Cart Concurrency:** Simulates multi-user shopping sessions with unique session cookies hitting Redis session storage.
+5. **High-Frequency Burst:** Dispatches a rapid 50-request traffic burst and reports requests/sec.
+6. **Live Diagnostics Report:** Outputs post-workload Redis memory usage, session counts, and OpenSearch status.
+
+---
+
+### Method B: Generating Official Magento Performance Fixtures
+
+Magento 2 includes a native performance toolkit capable of generating realistic catalog data (products, categories, customers, orders).
+
+Generate a **Small** performance fixture (800 products, 30 categories, 20 customers):
+```bash
+docker compose exec -u magento php-cli bin/magento setup:perf:generate-fixtures \
+  /var/www/html/setup/performance-toolkit/profiles/ce/small.xml
+```
+
+After generating fixtures, reindex and flush cache:
+```bash
+docker compose exec -u magento php-cli bin/magento indexer:reindex
+docker compose exec -u magento php-cli bin/magento cache:flush
+```
+
+---
+
+### Method C: Synthetic HTTP Load Testing (Apache Benchmark / `wrk`)
+
+#### 1. Test Varnish High-Concurrency Cache (Port 80)
+Simulate 1,000 requests with 50 concurrent connections against Varnish:
+```bash
+ab -n 1000 -c 50 -k http://localhost/
+```
+*Expected Result:* **1,500+ requests/sec**, sub-10ms response time, minimal CPU strain on PHP-FPM.
+
+#### 2. Test Uncached PHP-FPM / Direct Nginx (Port 8080)
+Compare by running a test directly against Nginx/PHP-FPM, bypassing Varnish:
+```bash
+ab -n 100 -c 10 http://localhost:8080/
+```
+
+#### 3. Test OpenSearch Catalog Search Spike
+Send 200 concurrent search queries to simulate a flash sale search spike:
+```bash
+ab -n 200 -c 20 "http://localhost/catalogsearch/result/?q=shoes"
+```
+
+---
+
+### Method D: Real-Time Workload Monitoring
+
+While running any workload, open a separate terminal window to inspect the microservices live:
+
+```bash
+# 1. Live Container CPU & Memory Consumption
+docker stats
+
+# 2. Redis Cache Hit / Eviction Metrics
+docker compose exec redis-cache redis-cli info stats
+
+# 3. Redis Active Sessions Count
+docker compose exec redis-session redis-cli dbsize
+
+# 4. OpenSearch Query Latency & Index Count
+curl -s http://localhost:9200/_cat/indices?v
+
+# 5. RabbitMQ Queue Message Counts
+docker compose exec rabbitmq rabbitmqctl list_queues
+
+# 6. MySQL Active Threads & Status
+docker compose exec mysql mysqladmin status -u magento -pmagento_secret_pw
+```
+
+---
+
+## 18. Troubleshooting & FAQs
 
 ### Q1: Composer fails with `Authentication required (repo.magento.com)`
 **Resolution:** Ensure valid Adobe Marketplace keys are specified in `.env`:

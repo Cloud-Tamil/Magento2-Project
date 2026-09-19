@@ -43,6 +43,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ files, selectedFile, onSelec
   const getFileIcon = (file: ProjectFile) => {
     if (file.language === 'dockerfile') return <Zap className="w-4 h-4 text-sky-600 shrink-0" />;
     if (file.language === 'bash') return <Terminal className="w-4 h-4 text-emerald-600 shrink-0" />;
+    if (file.language === 'markdown') return <FileText className="w-4 h-4 text-orange-600 shrink-0" />;
     if (file.category === 'database') return <Database className="w-4 h-4 text-blue-600 shrink-0" />;
     if (file.category === 'nginx') return <Globe className="w-4 h-4 text-teal-600 shrink-0" />;
     if (file.language === 'yaml') return <Layers className="w-4 h-4 text-amber-600 shrink-0" />;

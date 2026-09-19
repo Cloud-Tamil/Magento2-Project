@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Terminal, Layers, FileCode, Check, RefreshCw } from 'lucide-react';
+import { Download, Terminal, Layers, FileCode, Check, RefreshCw, Activity } from 'lucide-react';
 import JSZip from 'jszip';
 import { PROJECT_FILES, PROJECT_NAME, PROJECT_VERSION, PHP_VERSION } from '../data/projectData';
 
@@ -57,6 +57,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, fileCou
     { id: 'pipeline', label: 'Automation Pipeline', icon: Terminal },
     { id: 'configurator', label: '.env Generator', icon: RefreshCw },
     { id: 'cheatsheet', label: 'Commands', icon: Terminal },
+    { id: 'workload', label: 'Workload & Testing', icon: Activity },
     { id: 'docs', label: 'Documentation', icon: FileCode },
   ];
 
