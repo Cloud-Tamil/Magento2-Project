@@ -57,8 +57,9 @@ ARG HOST_UID=1000
 ARG HOST_GID=1000
 RUN groupadd -g ${HOST_GID} magento \
     && useradd -u ${HOST_UID} -g magento -m -s /bin/bash magento \
-    && mkdir -p /var/www/html /var/www/.composer \
-    && chown -R magento:magento /var/www
+    && mkdir -p /var/www/html /var/www/.composer /var/log \
+    && touch /var/log/php-fpm.slow.log \
+    && chown -R magento:magento /var/www /var/log/php-fpm.slow.log
 
 # Copy PHP and FPM configuration files
 COPY php.ini /usr/local/etc/php/conf.d/99-magento.ini

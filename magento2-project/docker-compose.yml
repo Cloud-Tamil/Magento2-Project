@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   mage-network:
     driver: bridge
@@ -33,7 +31,7 @@ services:
     networks:
       - mage-network
     tmpfs:
-      - /var/lib/varnish:exec
+      - /var/lib/varnish:rw,exec,mode=1777
 
   # ----------------------------------------------------------------------------
   # Nginx Web Server / FastCGI Reverse Proxy

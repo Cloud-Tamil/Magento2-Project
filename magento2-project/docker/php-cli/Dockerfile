@@ -68,5 +68,4 @@ WORKDIR /var/www/html
 
 USER magento
 
-ENTRYPOINT ["/bin/bash"]
-CMD ["-c", "tail -f /dev/null"]
+CMD ["tail", "-f", "/dev/null"]

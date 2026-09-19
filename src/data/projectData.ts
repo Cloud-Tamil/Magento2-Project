@@ -315,9 +315,7 @@ docker compose exec mysql mysqladmin status -u magento -pmagento_secret_pw
     category: "core",
     language: "yaml",
     purpose: "Base Docker orchestration file defining microservices, network isolation, healthchecks, and volume bindings.",
-    content: `version: '3.8'
-
-networks:
+    content: `networks:
   mage-network:
     driver: bridge
 
@@ -334,6 +332,9 @@ volumes:
     driver: local
 
 services:
+  # ----------------------------------------------------------------------------
+  # Varnish Full Page Cache (FPC) Reverse Proxy
+  # ----------------------------------------------------------------------------
   varnish:
     build:
       context: ./docker/varnish
@@ -347,8 +348,11 @@ services:
     networks:
       - mage-network
     tmpfs:
-      - /var/lib/varnish:exec
+      - /var/lib/varnish:rw,exec,mode=1777
 
+  # ----------------------------------------------------------------------------
+  # Nginx Web Server / FastCGI Reverse Proxy
+  # ----------------------------------------------------------------------------
   nginx:
     build:
       context: ./docker/nginx
@@ -367,6 +371,9 @@ services:
     networks:
       - mage-network
 
+  # ----------------------------------------------------------------------------
+  # PHP-FPM FastCGI Application Server
+  # ----------------------------------------------------------------------------
   php-fpm:
     build:
       context: ./docker/php-fpm
@@ -396,6 +403,9 @@ services:
     networks:
       - mage-network
 
+  # ----------------------------------------------------------------------------
+  # Automated Zero-Touch Magento Installer & CLI Utility
+  # ----------------------------------------------------------------------------
   php-cli:
     build:
       context: ./docker/php-cli
@@ -422,6 +432,9 @@ services:
       - mage-network
     command: ["/bin/bash", "/var/www/scripts/install-magento.sh"]
 
+  # ----------------------------------------------------------------------------
+  # Dedicated Isolated Cron Daemon
+  # ----------------------------------------------------------------------------
   php-cron:
     build:
       context: ./docker/php-cron
@@ -441,6 +454,9 @@ services:
     networks:
       - mage-network
 
+  # ----------------------------------------------------------------------------
+  # MySQL 8.0 / MariaDB 10.6 Database
+  # ----------------------------------------------------------------------------
   mysql:
     image: mysql:8.0
     container_name: \${COMPOSE_PROJECT_NAME:-mageforge}_mysql
@@ -459,12 +475,15 @@ services:
     networks:
       - mage-network
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\$\$MYSQL_ROOT_PASSWORD --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 15s
 
+  # ----------------------------------------------------------------------------
+  # Redis Cache & Full Page Cache
+  # ----------------------------------------------------------------------------
   redis-cache:
     image: redis:7.2-alpine
     container_name: \${COMPOSE_PROJECT_NAME:-mageforge}_redis_cache
@@ -478,6 +497,9 @@ services:
     networks:
       - mage-network
 
+  # ----------------------------------------------------------------------------
+  # Redis Session Store (noeviction, appendonly)
+  # ----------------------------------------------------------------------------
   redis-session:
     image: redis:7.2-alpine
     container_name: \${COMPOSE_PROJECT_NAME:-mageforge}_redis_session
@@ -489,6 +511,9 @@ services:
     networks:
       - mage-network
 
+  # ----------------------------------------------------------------------------
+  # OpenSearch 2.x Catalog Search Engine
+  # ----------------------------------------------------------------------------
   opensearch:
     image: opensearchproject/opensearch:2.12.0
     container_name: \${COMPOSE_PROJECT_NAME:-mageforge}_opensearch
@@ -514,12 +539,15 @@ services:
     networks:
       - mage-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"\\\\(yellow\\\\|green\\\\)\"'"]
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\\"status\\":\\"\\\\(yellow\\\\|green\\\\)\\"'"]
       interval: 10s
       timeout: 5s
       retries: 25
       start_period: 25s
 
+  # ----------------------------------------------------------------------------
+  # RabbitMQ Message Broker
+  # ----------------------------------------------------------------------------
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: \${COMPOSE_PROJECT_NAME:-mageforge}_rabbitmq
@@ -542,7 +570,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
-      start_period: 15s`
+      start_period: 15s
+`
   },
   {
     path: "magento2-project/docker-compose.dev.yml",
@@ -550,9 +579,7 @@ services:
     category: "core",
     language: "yaml",
     purpose: "Development override compose file for Xdebug IDE integration and Mailpit email capture.",
-    content: `version: '3.8'
-
-services:
+    content: `services:
   php-fpm:
     env_file:
       - docker/env/common.env
@@ -571,6 +598,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # Mailpit: Local email capture and testing tool
   mailpit:
     image: axllent/mailpit:latest
     container_name: \${COMPOSE_PROJECT_NAME:-mageforge}_mailpit
@@ -579,7 +607,8 @@ services:
       - "\${MAILPIT_PORT:-8025}:8025"
       - "1025:1025"
     networks:
-      - mage-network`
+      - mage-network
+`
   },
   {
     path: "magento2-project/.env.example",
@@ -955,39 +984,82 @@ exit 0`
     category: "php",
     language: "dockerfile",
     purpose: "PHP 8.2-FPM image containing bcmath, gd, intl, pdo_mysql, soap, sockets, xsl, zip, sodium, opcache, and PECL redis.",
-    content: `FROM php:8.2-fpm-bookworm
+    content: `# ==============================================================================
+# MageForge: Production-Ready PHP-FPM for Magento 2.4.x
+# Base: PHP 8.2 FPM Alpine / Debian
+# ==============================================================================
+FROM php:8.2-fpm-bookworm
 
+LABEL maintainer="MageForge Core Team"
+LABEL description="Optimized PHP-FPM container for Magento 2.4 Enterprise/Community"
+
+# Environment configuration
 ENV DEBIAN_FRONTEND=noninteractive \\
     MAGENTO_ROOT=/var/www/html \\
     COMPOSER_ALLOW_SUPERUSER=1
 
+# Install system dependencies required for Magento 2 extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \\
-    curl git unzip libfreetype6-dev libjpeg62-turbo-dev libpng-dev libwebp-dev \\
-    libicu-dev libxml2-dev libxslt1-dev libzip-dev libsodium-dev \\
-    procps default-mysql-client netcat-traditional \\
+    curl \\
+    git \\
+    unzip \\
+    libfreetype6-dev \\
+    libjpeg62-turbo-dev \\
+    libpng-dev \\
+    libwebp-dev \\
+    libxpm-dev \\
+    libicu-dev \\
+    libxml2-dev \\
+    libxslt1-dev \\
+    libzip-dev \\
+    libsodium-dev \\
+    libonig-dev \\
+    procps \\
+    default-mysql-client \\
+    netcat-traditional \\
     && rm -rf /var/lib/apt/lists/*
 
+# Configure & Install PHP Extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \\
-    && docker-php-ext-install -j\$(nproc) \\
-        bcmath gd intl pdo_mysql soap sockets xsl zip sodium opcache pcntl
+    && docker-php-ext-install -j$(nproc) \\
+        bcmath \\
+        gd \\
+        intl \\
+        pdo_mysql \\
+        soap \\
+        sockets \\
+        xsl \\
+        zip \\
+        sodium \\
+        opcache \\
+        pcntl
 
-RUN pecl install redis-6.0.2 && docker-php-ext-enable redis
+# Install Redis extension via PECL
+RUN pecl install redis-6.0.2 \\
+    && docker-php-ext-enable redis
 
+# Create non-root magento user with customizable UID/GID
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 RUN groupadd -g \${HOST_GID} magento \\
     && useradd -u \${HOST_UID} -g magento -m -s /bin/bash magento \\
-    && mkdir -p /var/www/html /var/www/.composer \\
-    && chown -R magento:magento /var/www
+    && mkdir -p /var/www/html /var/www/.composer /var/log \\
+    && touch /var/log/php-fpm.slow.log \\
+    && chown -R magento:magento /var/www /var/log/php-fpm.slow.log
 
+# Copy PHP and FPM configuration files
 COPY php.ini /usr/local/etc/php/conf.d/99-magento.ini
 COPY opcache.ini /usr/local/etc/php/conf.d/10-opcache.ini
 COPY www.conf /usr/local/etc/php-fpm.d/www.conf
 
 WORKDIR /var/www/html
+
 EXPOSE 9000
+
 USER magento
-CMD ["php-fpm", "-F"]`
+
+CMD ["php-fpm", "-F"]
+`
   },
   {
     path: "magento2-project/docker/php-cli/Dockerfile",
@@ -995,27 +1067,63 @@ CMD ["php-fpm", "-F"]`
     category: "php",
     language: "dockerfile",
     purpose: "Dedicated PHP 8.2 CLI container with official Composer v2.7, database clients, and unlimited execution time for installer jobs.",
-    content: `FROM php:8.2-cli-bookworm
+    content: `# ==============================================================================
+# MageForge: Dedicated PHP-CLI for Composer & bin/magento Execution
+# ==============================================================================
+FROM php:8.2-cli-bookworm
+
+LABEL maintainer="MageForge Core Team"
+LABEL description="Optimized PHP-CLI container with Composer and dev toolchain for Magento 2"
 
 ENV DEBIAN_FRONTEND=noninteractive \\
     MAGENTO_ROOT=/var/www/html \\
     COMPOSER_ALLOW_SUPERUSER=1 \\
     COMPOSER_MEMORY_LIMIT=-1
 
+# Install runtime and build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \\
-    curl git unzip libfreetype6-dev libjpeg62-turbo-dev libpng-dev libwebp-dev \\
-    libicu-dev libxml2-dev libxslt1-dev libzip-dev libsodium-dev \\
-    procps default-mysql-client netcat-traditional jq \\
+    curl \\
+    git \\
+    unzip \\
+    libfreetype6-dev \\
+    libjpeg62-turbo-dev \\
+    libpng-dev \\
+    libwebp-dev \\
+    libicu-dev \\
+    libxml2-dev \\
+    libxslt1-dev \\
+    libzip-dev \\
+    libsodium-dev \\
+    libonig-dev \\
+    procps \\
+    default-mysql-client \\
+    netcat-traditional \\
+    jq \\
     && rm -rf /var/lib/apt/lists/*
 
+# Configure & Install PHP Extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \\
-    && docker-php-ext-install -j\$(nproc) \\
-        bcmath gd intl pdo_mysql soap sockets xsl zip sodium opcache pcntl
+    && docker-php-ext-install -j$(nproc) \\
+        bcmath \\
+        gd \\
+        intl \\
+        pdo_mysql \\
+        soap \\
+        sockets \\
+        xsl \\
+        zip \\
+        sodium \\
+        opcache \\
+        pcntl
 
-RUN pecl install redis-6.0.2 && docker-php-ext-enable redis
+# Install Redis extension
+RUN pecl install redis-6.0.2 \\
+    && docker-php-ext-enable redis
 
+# Install Composer v2 (Latest official binary)
 COPY --from=composer:2.7 /usr/bin/composer /usr/local/bin/composer
 
+# Create non-root magento user
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 RUN groupadd -g \${HOST_GID} magento \\
@@ -1024,10 +1132,13 @@ RUN groupadd -g \${HOST_GID} magento \\
     && chown -R magento:magento /var/www
 
 COPY php.ini /usr/local/etc/php/conf.d/99-magento-cli.ini
+
 WORKDIR /var/www/html
+
 USER magento
-ENTRYPOINT ["/bin/bash"]
-CMD ["-c", "tail -f /dev/null"]`
+
+CMD ["tail", "-f", "/dev/null"]
+`
   },
   {
     path: "magento2-project/docker/php-cron/Dockerfile",
@@ -1150,13 +1261,28 @@ sub vcl_recv {
     return (hash);
 }`
   },
-  {
+    {
+    path: "magento2-project/docker/mysql/docker-entrypoint-initdb.d/01-init.sql",
+    name: "01-init.sql",
+    category: "database",
+    language: "sql",
+    purpose: "MySQL 8.0 user initialization and privilege grants script.",
+    content: `-- Magento 2 database initialization script
+-- Compatible with MySQL 8.0 authentication
+CREATE USER IF NOT EXISTS 'magento'@'%' IDENTIFIED BY 'magento_secret_pw';
+ALTER USER 'magento'@'%' IDENTIFIED BY 'magento_secret_pw';
+GRANT ALL PRIVILEGES ON *.* TO 'magento'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+`
+  },
+{
     path: "magento2-project/docker/mysql/my.cnf",
     name: "my.cnf",
     category: "database",
     language: "ini",
     purpose: "MySQL 8.0 InnoDB tuning for Magento: 2G buffer pool, utf8mb4 collation, 128M max_allowed_packet, and transaction commit safety.",
     content: `[mysqld]
+# Magento 2 Recommended MySQL / MariaDB InnoDB Tuning
 default_authentication_plugin = mysql_native_password
 character-set-server = utf8mb4
 collation-server = utf8mb4_unicode_ci
@@ -1164,14 +1290,32 @@ collation-server = utf8mb4_unicode_ci
 max_connections = 250
 max_allowed_packet = 128M
 thread_cache_size = 16
+sort_buffer_size = 8M
+bulk_insert_buffer_size = 16M
+tmp_table_size = 64M
+max_heap_table_size = 64M
 
+# InnoDB settings for large catalogs
 innodb_buffer_pool_size = 2G
 innodb_buffer_pool_instances = 2
 innodb_log_file_size = 512M
+innodb_log_buffer_size = 32M
 innodb_flush_log_at_trx_commit = 2
 innodb_flush_method = O_DIRECT
 innodb_file_per_table = 1
-sql_mode = "NO_ENGINE_SUBSTITUTION"`
+innodb_open_files = 1024
+
+# Query Optimization
+sql_mode = "NO_ENGINE_SUBSTITUTION"
+table_open_cache = 4096
+table_definition_cache = 2048
+
+[client]
+default-character-set = utf8mb4
+
+[mysql]
+default-character-set = utf8mb4
+`
   },
   {
     path: "magento2-project/docker/redis/redis-cache.conf",
